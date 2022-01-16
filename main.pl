@@ -20,9 +20,10 @@
 :- abolish(w_gold/2). % gold position
 :- abolish(w_arrow/1). % arrow available?
 :- abolish(w_goal/1). % gold available?
+:- abolish(w_score/1). % hunter score
 
 % CREATE DYNAMIC DATA
-:- dynamic w_wall/2, w_hunter/3, w_wumpus/2, w_pit/2, w_gold/2, w_arrow/1, w_goal/1. 
+:- dynamic w_wall/2, w_hunter/3, w_wumpus/2, w_pit/2, w_gold/2, w_arrow/1, w_goal/1, w_score/1.
 
 % CLEAR WORLD
 clearWorld :-
@@ -32,7 +33,8 @@ clearWorld :-
     retractall(w_pit(_,_)),
     retractall(w_gold(_,_)),
     retractall(w_arrow(_)),
-    retractall(w_goal(_)).
+    retractall(w_goal(_)),
+    retractall(w_score(_)).
 
 % BUILD BORDER MAP WALLS
 buildWalls :-
@@ -67,7 +69,8 @@ createWorld :-
     assert(w_pit(4,4)),
     assert(w_gold(2,3)),
     assert(w_arrow(1)),
-    assert(w_goal(0)).
+    assert(w_goal(0)),
+    assert(w_score(0)).
 
 % PRINT WELCOME MESSAGE
 welcome :-
@@ -89,14 +92,22 @@ init :-
 % CHECK HUNTER INTERCEPTIONS - WUMPUS
 getPerceptions :-
     w_hunter(X,Y,FACING),
-    (w_hunter(1,1,_), w_goal(1) -> P_goal is 1; P_goal is 0),
+    (w_hunter(1,1,_), w_goal(1) -> P_goal is 1, w_score(SCORE); P_goal is 0),
     (w_wumpus(X,Y) -> P_wumpus is 1; P_wumpus is 0),
     (w_pit(X,Y) -> P_pit is 1; P_pit is 0),
     (w_wall(X,Y) -> P_wall is 1; P_wall is 0),
     (
-        P_goal = 1, write('\n\nWINNER: You managed to get out of the cave with the gold!\n'), !, fail;
-        P_wumpus = 1, write('\n\nGAME OVER: Wumpus killed you!\n'), !, fail;
-        P_pit = 1, write('\n\nGAME OVER: You fell into a pit!\n'), !, fail;
+        P_goal = 1, 
+        write('\n\nWINNER: You managed to get out of the cave with the gold!\n'),
+        format('HUNTER SCORE: ~d point(s).\n',[SCORE]), !, fail;
+
+        P_wumpus = 1, write('\n\nGAME OVER: Wumpus killed you!\n'), 
+        w_score(A), B is A-1000, retract(w_score(_)), assert(w_score(B)),
+        format('HUNTER SCORE: ~d point(s).\n',[SCORE]), !, fail;
+
+        P_pit = 1, write('\n\nGAME OVER: You fell into a pit!\n'), 
+        w_score(A), B is A-1000, retract(w_score(_)), assert(w_score(B)),
+        format('HUNTER SCORE: ~d point(s).\n',[SCORE]), !, fail;
         (
             P_wall = 1,
             write('\n\nWARNING: You hit the wall!'),
@@ -114,7 +125,12 @@ getPerceptions :-
 % GET HUNTER CURRENT POSITION
 printHunterPosition :-
     w_hunter(X,Y,FACING),
-    format('\nhunter position: (~d,~d), facing ~s.\n', [X, Y, FACING]).
+    format('\nHunter position: (~d,~d), facing ~s.\n', [X, Y, FACING]).
+
+% PRINT HUNTER SCORE
+printScore :-
+    w_score(SCORE),
+    format('Current score: ~d point(s).\n', [SCORE]).
 
 % STENCH SENSOR INFO - WUMPUS NEAR
 stench(X,Y) :-
@@ -149,6 +165,7 @@ printInfo(SENSORES) :-
 
 % HUNTER CONTROL - MOVE FORWARD
 move :- 
+    w_score(A), B is A-1, retract(w_score(_)), assert(w_score(B)),
     w_hunter(X,Y,FACING),
     (
         FACING = up, plus(Y,+1,N_Y), N_X is X;
@@ -161,6 +178,7 @@ move :-
 
 % HUNTER CONTROL - ROTATE LEFT
 left :-
+    w_score(A), B is A-1, retract(w_score(_)), assert(w_score(B)),
     w_hunter(X,Y,FACING),
     (
         FACING = up, NEW_FACING = left;
@@ -173,6 +191,7 @@ left :-
 
 % HUNTER CONTROL - ROTATE RIGHT
 right :-
+    w_score(A), B is A-1, retract(w_score(_)), assert(w_score(B)),
     w_hunter(X,Y,FACING),
     (
         FACING = up, NEW_FACING = right;
@@ -185,6 +204,7 @@ right :-
 
 % HUNTER CONTRL - GRAB GOLD
 grab :-
+    w_score(A), B is A-1, retract(w_score(_)), assert(w_score(B)),
     w_goal(1), write('\n\nGOAL: You already grabbed all the gold.'), !;
     w_goal(0),
     w_hunter(X,Y,_),
@@ -192,11 +212,13 @@ grab :-
     retract(w_gold(X,Y)),
     retract(w_goal(0)),
     assert(w_goal(1)),
+    w_score(A), B is A+1000, retract(w_score(_)), assert(w_score(B)),
     write('\n\nGOAL: You grabbed the gold!. Now get out of the cave.'), !;
     write('\n\nWARNING: There`s no gold to grab where you are.').
 
 % HUNTER CONTROL - SHOOT ARROW
 shoot :-
+    w_score(A), B is A-10, retract(w_score(_)), assert(w_score(B)),
     w_arrow(0), write('\n\nWARNING: You have no arrows to shoot.'), !, true;
     (
         w_hunter(X,Y,FACING),
@@ -235,6 +257,7 @@ menu :-
     printHunterPosition,
     getSensors(SENSORES),
     printInfo(SENSORES),
+    printScore,
     write('Next action: '), 
     read(OPTION),
     action(OPTION),
