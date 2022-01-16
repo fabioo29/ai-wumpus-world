@@ -1,0 +1,219 @@
+%   ----------------- %    H -> hunter
+% 4 |   |   |   | P | %    P -> pit
+%   ----------------- %    W -> wumpus
+% 3 | W | G | P |   | %    G -> gold
+%   ----------------- %     
+% 2 |   |   |   |   | %    GOAL: Hunter has to take gold and get out of the cavern through [1,1] position
+%   ----------------- %    without being killed by the wumpus or fall into a pit. Hunter can kill the wumpus 
+% 1 | H |   | P |   | %    with an arrow. Hunter actions are: 'move_forward', 'turn_left', 'turn_right', 'shoot'.
+% y ----------------- %    wumpus screams when it is killed. Hunter can sense wumpus, gold or pit in adjacent cells.
+%   x 1   2   3   4   %    AGENT scores when he: gets gold(+1000), dies(-1000), takes_action(-1), shoot_arrow(-10).
+
+
+:- debug.
+
+% DELETE DYNAMIC DATA
+:- abolish(w_wall/2). % wall position
+:- abolish(w_hunter/3). % hunter position
+:- abolish(w_wumpus/2). % wumpus position
+:- abolish(w_pit/2). % pit position
+:- abolish(w_gold/2). % gold position
+
+% CREATE DYNAMIC DATA
+:- dynamic w_wall/2, w_hunter/3, w_wumpus/2, w_pit/2, w_gold/2. 
+
+% RUN WUMPUS WORLD SIMULATION
+run :- 
+    clearWorld,
+    createWorld,
+    welcome,
+    start.
+
+% PRINT WELCOME MESSAGE
+welcome :-
+    format('\n\n~`=t~60|\n'),
+    format(' |~t~a~t~58+| ', ['[PROLOG] Wumpus-world AI Agent']),
+    format('\n~`=t~60|'),
+    format('\n |~t~a~t~58+| ', ['ACTIONS: ready, move, left, right, grab, shoot']),
+    format('\n |~t~a~t~58+| ', ['GOAL: get the gold and return to this position']),
+    format('\n |~t~a~t~58+| ', ['AVOID: wumpus, the walls and all the pits in the map']),
+    format('\n |~t~a~t~58+| \n\n', ['BONUS: aim to the wumpus and kill it with the arrow']).
+
+% INITIALIZE GAME
+start :- 
+    write('Type "ready." to start the game: '),
+    read(X),
+    X = ready,
+    menu; 
+    start.
+
+% SHOW MENU TO USER
+menu :-
+    getPerceptions(_),
+    printHunterPosition,
+    getSensors(SENSORES),
+    printInfo(SENSORES),
+    write('Next action: '), 
+    read(OPTION),
+    action(OPTION).
+
+% CHECK HUNTER INTERCEPTIONS - WUMPUS
+getPerceptions(P) :-
+    w_hunter(X,Y,FACING),
+    (w_wumpus(X,Y) -> P_wumpus is 1; P_wumpus is 0),
+    (w_pit(X,Y) -> P_pit is 1; P_pit is 0),
+    (w_wall(X,Y) -> P_wall is 1; P_wall is 0),
+    P = [P_wumpus, P_pit, P_wall],
+    (P_wumpus = 1, write('\n\nGAME OVER: Wumpus killed you!') -> halt; true),
+    (P_pit = 1, write('\n\nGAME OVER: You fell into a pit!') -> halt; true),
+    (
+        P_wall = 1,
+        write('\n\nWARNING: You hit the wall!'),
+        (
+            FACING = up,N_Y is Y-1, N_X is X;
+            FACING = down,N_Y is Y+1, N_X is X;
+            FACING = left,N_X is X+1, N_Y is Y;
+            FACING = right,N_X is X-1, N_Y is Y
+        ),
+        retractall(w_hunter(_,_,_)),
+        assert(w_hunter(N_X,N_Y,FACING))
+    ), true.
+
+% GET HUNTER CURRENT POSITION
+printHunterPosition :-
+    w_hunter(X,Y,FACING),
+    format('\nhunter position: (~d,~d), facing ~s.\n', [X, Y, FACING]).
+
+% GET SENSORS INFO PERCEIVED BY HUNTER
+getSensors(SENSORES) :-
+    w_hunter(X,Y,_),
+    (stench(X,Y),S_stench is 1,!; S_stench is 0),
+    (breeze(X,Y),S_breeze is 1,!; S_breeze is 0),
+    (glitter(X,Y),S_glitter is 1,!; S_glitter is 0),
+    SENSORES = [S_stench, S_breeze, S_glitter].
+
+% STENCH SENSOR INFO
+stench(X,Y) :-
+    w_wumpus(A,B),
+    (
+		X is A,(Y is B-1;Y is B+1);
+		Y is B,(X is A-1;X is A+1)
+	).
+
+% BREEZE SENSOR INFO
+breeze(X,Y) :-
+    w_pit(A,B),
+    (
+        X is A,(Y is B-1;Y is B+1);
+        Y is B,(X is A-1;X is A+1)
+    ).
+
+% GLITTER SENSOR INFO
+glitter(X,Y) :- w_gold(X,Y).
+
+% PRINT SENSORS INFO
+printInfo(SENSORES) :-
+    format('stench: ~d breeze: ~d glitter: ~d\n', SENSORES).
+
+% TAKE HUNTER ACTION
+action(OPTION) :-
+    (
+        OPTION = move,
+        move,
+        menu, !;
+        OPTION = left,
+        left,
+        menu, !;
+        OPTION = right,
+        right,
+        menu, !;
+        OPTION = grab,
+        grab,
+        menu, !;
+        OPTION = shoot,
+        shoot,
+        menu, !;
+        write('UNKNOWN ACTION: Please use move, left, right, grab or shoot.\n'),
+        menu
+    ).
+
+% CLEAR WORLD
+clearWorld :-
+    retractall(w_wall(_,_)),
+    retractall(w_hunter(_,_,_)),
+    retractall(w_wumpus(_,_)),
+    retractall(w_pit(_,_)),
+    retractall(w_gold(_,_)).
+
+% CREATE WORLD
+createWorld :-
+    buildWalls,
+    assert(w_hunter(1,1,right)),
+    assert(w_wumpus(1,3)),
+    assert(w_pit(3,1)),
+    assert(w_pit(3,3)),
+    assert(w_pit(4,4)),
+    assert(w_gold(2,3)).
+
+% BUILD BORDER MAP WALLS
+buildWalls :-
+    assert(w_wall(0,0)),
+    assert(w_wall(0,1)),
+    assert(w_wall(0,2)),
+    assert(w_wall(0,3)),
+    assert(w_wall(0,4)),
+    assert(w_wall(0,5)),
+    assert(w_wall(1,5)),
+    assert(w_wall(2,5)),
+    assert(w_wall(3,5)),
+    assert(w_wall(4,5)),
+    assert(w_wall(5,5)),
+    assert(w_wall(5,4)),
+    assert(w_wall(5,3)),
+    assert(w_wall(5,2)),
+    assert(w_wall(5,1)),
+    assert(w_wall(5,0)),
+    assert(w_wall(4,0)),
+    assert(w_wall(3,0)),
+    assert(w_wall(2,0)),
+    assert(w_wall(1,0)).
+
+% HUNTER CONTROL - MOVE FORWARD
+move :- 
+    w_hunter(X,Y,FACING),
+    (
+        FACING = up, plus(Y,+1,N_Y), N_X is X;
+        FACING = down, plus(Y,-1,N_Y), N_X is X;
+        FACING = left, plus(X,-1,N_X), N_Y is Y;
+        FACING = right, plus(X,+1,N_X), N_Y is Y
+    ),
+	retractall(w_hunter(_,_,_)),
+	assert(w_hunter(N_X, N_Y, FACING)). 
+
+% HUNTER CONTROL - ROTATE LEFT
+left :-
+    w_hunter(X,Y,FACING),
+    (
+        FACING = up, NEW_FACING = left;
+        FACING = down, NEW_FACING = right;
+        FACING = left, NEW_FACING = down;
+        FACING = right, NEW_FACING = up
+    ),
+    retractall(w_hunter(_,_,_)),
+    assertz(w_hunter(X,Y,NEW_FACING)).
+
+% HUNTER CONTROL - ROTATE RIGHT
+right :-
+    w_hunter(X,Y,FACING),
+    (
+        FACING = up, NEW_FACING = right;
+        FACING = down, NEW_FACING = left;
+        FACING = left, NEW_FACING = up;
+        FACING = right, NEW_FACING = down
+    ),
+    retractall(w_hunter(_,_,_)),
+    assertz(w_hunter(X,Y,NEW_FACING)).
+
+grab.
+shoot.
+
