@@ -27,7 +27,8 @@ run :-
     clearWorld,
     createWorld,
     welcome,
-    start.
+    init,
+    menu. 
 
 % PRINT WELCOME MESSAGE
 welcome :-
@@ -40,51 +41,52 @@ welcome :-
     format('\n |~t~a~t~58+| \n\n', ['BONUS: aim to the wumpus and kill it with the arrow']).
 
 % INITIALIZE GAME
-start :- 
+init :- 
     write('Type "ready." to start the game: '),
     read(X),
-    X = ready,
-    menu; 
-    start.
+    X = ready, !, true;
+    init.
 
 % SHOW MENU TO USER
 menu :-
-    getPerceptions(_),
+    getPerceptions,
     printHunterPosition,
     getSensors(SENSORES),
     printInfo(SENSORES),
     write('Next action: '), 
     read(OPTION),
-    action(OPTION).
+    action(OPTION),
+    menu.
 
 % CHECK HUNTER INTERCEPTIONS - WUMPUS
-getPerceptions(P) :-
+getPerceptions :-
     w_hunter(X,Y,FACING),
     (w_wumpus(X,Y) -> P_wumpus is 1; P_wumpus is 0),
     (w_pit(X,Y) -> P_pit is 1; P_pit is 0),
     (w_wall(X,Y) -> P_wall is 1; P_wall is 0),
-    P = [P_wumpus, P_pit, P_wall],
-    (P_wumpus = 1, write('\n\nGAME OVER: Wumpus killed you!') -> halt; true),
-    (P_pit = 1, write('\n\nGAME OVER: You fell into a pit!') -> halt; true),
     (
-        P_wall = 1,
-        write('\n\nWARNING: You hit the wall!'),
+        P_wumpus = 1, write('\n\nGAME OVER: Wumpus killed you!\n'), !, fail;
+        P_pit = 1, write('\n\nGAME OVER: You fell into a pit!\n'), !, fail;
         (
-            FACING = up,N_Y is Y-1, N_X is X;
-            FACING = down,N_Y is Y+1, N_X is X;
-            FACING = left,N_X is X+1, N_Y is Y;
-            FACING = right,N_X is X-1, N_Y is Y
-        ),
-        retractall(w_hunter(_,_,_)),
-        assert(w_hunter(N_X,N_Y,FACING))
-    ), true.
+            P_wall = 1,
+            write('\n\nWARNING: You hit the wall!'),
+            (
+                FACING = up,N_Y is Y-1, N_X is X;
+                FACING = down,N_Y is Y+1, N_X is X;
+                FACING = left,N_X is X+1, N_Y is Y;
+                FACING = right,N_X is X-1, N_Y is Y
+            ),
+            retractall(w_hunter(_,_,_)),
+            assert(w_hunter(N_X,N_Y,FACING)), !, true
+        )
+    ); true.
 
 % GET HUNTER CURRENT POSITION
 printHunterPosition :-
     w_hunter(X,Y,FACING),
     format('\nhunter position: (~d,~d), facing ~s.\n', [X, Y, FACING]).
 
-% GET SENSORS INFO PERCEIVED BY HUNTER
+% GET HUNTER SENSORS INFO
 getSensors(SENSORES) :-
     w_hunter(X,Y,_),
     (stench(X,Y),S_stench is 1,!; S_stench is 0),
@@ -118,23 +120,12 @@ printInfo(SENSORES) :-
 % TAKE HUNTER ACTION
 action(OPTION) :-
     (
-        OPTION = move,
-        move,
-        menu, !;
-        OPTION = left,
-        left,
-        menu, !;
-        OPTION = right,
-        right,
-        menu, !;
-        OPTION = grab,
-        grab,
-        menu, !;
-        OPTION = shoot,
-        shoot,
-        menu, !;
-        write('UNKNOWN ACTION: Please use move, left, right, grab or shoot.\n'),
-        menu
+        OPTION = move, move, !;
+        OPTION = left, left, !;
+        OPTION = right, right, !;
+        OPTION = grab, grab, !;
+        OPTION = shoot, shoot, !;
+        write('UNKNOWN ACTION: Please use move, left, right, grab or shoot.\n')
     ).
 
 % CLEAR WORLD
