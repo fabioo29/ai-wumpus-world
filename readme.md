@@ -1,5 +1,3 @@
-<center>
-
-![wumpus_world](assets/wumpus-world.png)
-
-</center>
+<p align="center">
+  <img src="assets/wumpus-world.png" />
+</p>
