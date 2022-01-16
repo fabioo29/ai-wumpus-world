@@ -12,6 +12,9 @@
 % DEBUG MODE
 :- debug.
 
+% ENCODING LANGUAGE
+:- encoding(utf8).
+
 % DELETE DYNAMIC DATA
 :- abolish(w_wall/2). % wall position
 :- abolish(w_hunter/3). % hunter position
@@ -21,9 +24,10 @@
 :- abolish(w_arrow/1). % arrow available?
 :- abolish(w_goal/1). % gold available?
 :- abolish(w_score/1). % hunter score
+:- abolish(w_cells/1). % hunter action
 
 % CREATE DYNAMIC DATA
-:- dynamic w_wall/2, w_hunter/3, w_wumpus/2, w_pit/2, w_gold/2, w_arrow/1, w_goal/1, w_score/1.
+:- dynamic w_wall/2, w_hunter/3, w_wumpus/2, w_pit/2, w_gold/2, w_arrow/1, w_goal/1, w_score/1, w_cells/1.
 
 % CLEAR WORLD
 clearWorld :-
@@ -34,7 +38,8 @@ clearWorld :-
     retractall(w_gold(_,_)),
     retractall(w_arrow(_)),
     retractall(w_goal(_)),
-    retractall(w_score(_)).
+    retractall(w_score(_)),
+    retractall(w_cells(_)).
 
 % BUILD BORDER MAP WALLS
 buildWalls :-
@@ -59,15 +64,41 @@ buildWalls :-
     assert(w_wall(2,0)),
     assert(w_wall(1,0)).
 
+% SELECT RANDOM AVAILABLE CELL
+selectCell(X,Y) :-
+    w_cells(Cells),
+	random_select(Cell,Cells,NewCells),
+    Cell = [X,Y],
+	retract(w_cells(_)),
+	assert(w_cells(NewCells)).
+
+% BUILD WUMPUS POSITION
+buildWumpus :- 
+    selectCell(X,Y),
+    assert(w_wumpus(X,Y)).
+
+% BUILD PITS POSITION
+buildPits :-
+    selectCell(X1,Y1),
+    assert(w_pit(X1,Y1)),
+    selectCell(X2,Y2),
+    assert(w_pit(X2,Y2)),
+    selectCell(X3,Y3),
+    assert(w_pit(X3,Y3)).
+
+% BUILD GOLD POSITION
+buildGold :-
+    selectCell(X,Y),
+    assert(w_gold(X,Y)).
+
 % CREATE WORLD
-createWorld :-
+createWorld :-    
+    assert(w_cells([[1,2],[1,3],[1,4],[2,1],[2,2],[2,3],[2,4],[3,1],[3,2],[3,3],[3,4],[4,1],[4,2],[4,3],[4,4]])),
     buildWalls,
+    buildWumpus,
+    buildPits,
+    buildGold,
     assert(w_hunter(1,1,right)),
-    assert(w_wumpus(1,3)),
-    assert(w_pit(3,1)),
-    assert(w_pit(3,3)),
-    assert(w_pit(4,4)),
-    assert(w_gold(2,3)),
     assert(w_arrow(1)),
     assert(w_goal(0)),
     assert(w_score(0)).
@@ -92,22 +123,22 @@ init :-
 % CHECK HUNTER INTERCEPTIONS - WUMPUS
 getPerceptions :-
     w_hunter(X,Y,FACING),
-    (w_hunter(1,1,_), w_goal(1) -> P_goal is 1, w_score(SCORE); P_goal is 0),
+    (w_hunter(1,1,_), w_goal(1) -> P_goal is 1; P_goal is 0),
     (w_wumpus(X,Y) -> P_wumpus is 1; P_wumpus is 0),
     (w_pit(X,Y) -> P_pit is 1; P_pit is 0),
     (w_wall(X,Y) -> P_wall is 1; P_wall is 0),
     (
-        P_goal = 1, 
+        P_goal = 1, w_score(SCORE),
         write('\n\nWINNER: You managed to get out of the cave with the gold!\n'),
-        format('HUNTER SCORE: ~d point(s).\n',[SCORE]), !, fail;
+        format('YOUR SCORE: ~d point(s).\n',[SCORE]), !, fail;
 
-        P_wumpus = 1, write('\n\nGAME OVER: Wumpus killed you!\n'), 
+        P_wumpus = 1, w_score(SCORE), write('\n\nGAME OVER: Wumpus killed you!\n'), 
         w_score(A), B is A-1000, retract(w_score(_)), assert(w_score(B)),
-        format('HUNTER SCORE: ~d point(s).\n',[SCORE]), !, fail;
+        format('YOUR SCORE: ~d point(s).\n',[SCORE]), !, fail;
 
-        P_pit = 1, write('\n\nGAME OVER: You fell into a pit!\n'), 
+        P_pit = 1, w_score(SCORE), write('\n\nGAME OVER: You fell into a pit!\n'), 
         w_score(A), B is A-1000, retract(w_score(_)), assert(w_score(B)),
-        format('HUNTER SCORE: ~d point(s).\n',[SCORE]), !, fail;
+        format('YOUR SCORE: ~d point(s).\n',[SCORE]), !, fail;
         (
             P_wall = 1,
             write('\n\nWARNING: You hit the wall!'),
