@@ -27,7 +27,17 @@
 :- abolish(w_cells/1). % hunter action
 
 % CREATE DYNAMIC DATA
-:- dynamic w_wall/2, w_hunter/3, w_wumpus/2, w_pit/2, w_gold/2, w_arrow/1, w_goal/1, w_score/1, w_cells/1.
+:- dynamic ([
+    w_wall/2, 
+    w_hunter/3, 
+    w_wumpus/2, 
+    w_pit/2, 
+    w_gold/2, 
+    w_arrow/1, 
+    w_goal/1, 
+    w_score/1, 
+    w_cells/1
+]).
 
 % CLEAR WORLD
 clearWorld :-
@@ -114,44 +124,38 @@ welcome :-
     format('\n |~t~a~t~58+| \n\n', ['BONUS: aim to the wumpus and kill it with the arrow']).
 
 % INITIALIZE GAME
-init :- 
-    write('Type "ready." to start the game: '),
-    read(X),
-    X = ready, !, true;
-    init.
+init :- write('Type "ready." to start the game: '), read(X), X = ready, !.
+init :- init.
+
+% HUNTER HIT SOMETHING?
+hunterHit([0,0,0]).
+hunterHit([1, _, _]):- 
+    w_score(SCORE), write('\n\nGAME OVER: Wumpus killed you!\n'), 
+    w_score(A), B is A-1000, retract(w_score(_)), assert(w_score(B)),
+    format('YOUR SCORE: ~d point(s).\n',[SCORE]), !, fail.
+hunterHit([_, 1, _]):-
+    w_score(SCORE), write('\n\nGAME OVER: You fell into a pit!\n'), 
+    w_score(A), B is A-1000, retract(w_score(_)), assert(w_score(B)),
+    format('YOUR SCORE: ~d point(s).\n',[SCORE]), !, fail.
+hunterHit([_, _, 1]):-
+    write('\n\nWARNING: You hit the wall!'), w_hunter(X,Y,FACING),
+    (
+        FACING = up, N_Y is Y-1, N_X is X;
+        FACING = down, N_Y is Y+1, N_X is X;
+        FACING = left, N_X is X+1, N_Y is Y;
+        FACING = right, N_X is X-1, N_Y is Y
+    ),
+    retract(w_hunter(_,_,_)),
+    assert(w_hunter(N_X,N_Y,FACING)).
 
 % CHECK HUNTER INTERCEPTIONS - WUMPUS
-getPerceptions :-
-    w_hunter(X,Y,FACING),
-    (w_hunter(1,1,_), w_goal(1) -> P_goal is 1; P_goal is 0),
+getPerceptions(P_goal) :-
+    w_hunter(X,Y,_),
     (w_wumpus(X,Y) -> P_wumpus is 1; P_wumpus is 0),
     (w_pit(X,Y) -> P_pit is 1; P_pit is 0),
     (w_wall(X,Y) -> P_wall is 1; P_wall is 0),
-    (
-        P_goal = 1, w_score(SCORE),
-        write('\n\nWINNER: You managed to get out of the cave with the gold!\n'),
-        format('YOUR SCORE: ~d point(s).\n',[SCORE]), !, fail;
-
-        P_wumpus = 1, w_score(SCORE), write('\n\nGAME OVER: Wumpus killed you!\n'), 
-        w_score(A), B is A-1000, retract(w_score(_)), assert(w_score(B)),
-        format('YOUR SCORE: ~d point(s).\n',[SCORE]), !, fail;
-
-        P_pit = 1, w_score(SCORE), write('\n\nGAME OVER: You fell into a pit!\n'), 
-        w_score(A), B is A-1000, retract(w_score(_)), assert(w_score(B)),
-        format('YOUR SCORE: ~d point(s).\n',[SCORE]), !, fail;
-        (
-            P_wall = 1,
-            write('\n\nWARNING: You hit the wall!'),
-            (
-                FACING = up,N_Y is Y-1, N_X is X;
-                FACING = down,N_Y is Y+1, N_X is X;
-                FACING = left,N_X is X+1, N_Y is Y;
-                FACING = right,N_X is X-1, N_Y is Y
-            ),
-            retractall(w_hunter(_,_,_)),
-            assert(w_hunter(N_X,N_Y,FACING)), !, true
-        )
-    ); true.
+    (w_hunter(1,1,_), w_goal(1) -> P_goal is 1; P_goal is 0),
+    hunterHit([P_wumpus,P_pit,P_wall]).
 
 % GET HUNTER CURRENT POSITION
 printHunterPosition :-
@@ -167,9 +171,9 @@ printScore :-
 stench(X,Y) :-
     w_wumpus(A,B),
     (
-		X is A,(Y is B-1;Y is B+1);
-		Y is B,(X is A-1;X is A+1)
-	).
+        X is A,(Y is B-1;Y is B+1);
+	    Y is B,(X is A-1;X is A+1)
+    ).
 
 % BREEZE SENSOR INFO - PIT NEAR
 breeze(X,Y) :-
@@ -183,16 +187,16 @@ breeze(X,Y) :-
 glitter(X,Y) :- w_gold(X,Y).
 
 % GET HUNTER SENSORS INFO
-getSensors(SENSORES) :-
+getSensors(SENSORS) :-
     w_hunter(X,Y,_),
-    (stench(X,Y),S_stench is 1,!; S_stench is 0),
-    (breeze(X,Y),S_breeze is 1,!; S_breeze is 0),
-    (glitter(X,Y),S_glitter is 1,!; S_glitter is 0),
-    SENSORES = [S_stench, S_breeze, S_glitter].
+    (stench(X,Y) -> S_stench is 1; S_stench is 0),
+    (breeze(X,Y) -> S_breeze is 1; S_breeze is 0),
+    (glitter(X,Y) -> S_glitter is 1; S_glitter is 0),
+    SENSORS = [S_stench, S_breeze, S_glitter].
 
 % PRINT SENSORS INFO
-printInfo(SENSORES) :-
-    format('stench: ~d breeze: ~d glitter: ~d\n', SENSORES).
+printInfo(SENSORS) :-
+    format('stench: ~d breeze: ~d glitter: ~d\n', SENSORS).
 
 % HUNTER CONTROL - MOVE FORWARD
 move :- 
@@ -204,7 +208,7 @@ move :-
         FACING = left, plus(X,-1,N_X), N_Y is Y;
         FACING = right, plus(X,+1,N_X), N_Y is Y
     ),
-	retractall(w_hunter(_,_,_)),
+	retract(w_hunter(_,_,_)),
 	assert(w_hunter(N_X, N_Y, FACING)). 
 
 % HUNTER CONTROL - ROTATE LEFT
@@ -217,7 +221,7 @@ left :-
         FACING = left, NEW_FACING = down;
         FACING = right, NEW_FACING = up
     ),
-    retractall(w_hunter(_,_,_)),
+    retract(w_hunter(_,_,_)),
     assertz(w_hunter(X,Y,NEW_FACING)).
 
 % HUNTER CONTROL - ROTATE RIGHT
@@ -230,74 +234,73 @@ right :-
         FACING = left, NEW_FACING = up;
         FACING = right, NEW_FACING = down
     ),
-    retractall(w_hunter(_,_,_)),
+    retract(w_hunter(_,_,_)),
     assertz(w_hunter(X,Y,NEW_FACING)).
 
 % HUNTER CONTRL - GRAB GOLD
-grab :-
-    w_score(A), B is A-1, retract(w_score(_)), assert(w_score(B)),
-    w_goal(1), write('\n\nGOAL: You already grabbed all the gold.'), !;
-    w_goal(0),
+grab(_) :- w_score(A), B is A-1, retract(w_score(_)), assert(w_score(B)), fail.
+grab(1) :- 
+    write('\n\nGOAL: You already grabbed all the gold.'), !.
+grab(0) :-
     w_hunter(X,Y,_),
     w_gold(X,Y),
     retract(w_gold(X,Y)),
     retract(w_goal(0)),
     assert(w_goal(1)),
     w_score(A), B is A+1000, retract(w_score(_)), assert(w_score(B)),
-    write('\n\nGOAL: You grabbed the gold!. Now get out of the cave.'), !;
+    write('\n\nGOAL: You grabbed the gold!. Now get out of the cave.'), !.
+grab(0) :-
     write('\n\nWARNING: There`s no gold to grab where you are.').
 
 % HUNTER CONTROL - SHOOT ARROW
-shoot :-
-    w_score(A), B is A-10, retract(w_score(_)), assert(w_score(B)),
-    w_arrow(0), write('\n\nWARNING: You have no arrows to shoot.'), !, true;
-    (
-        w_hunter(X,Y,FACING),
-        w_wumpus(A,B),
-        retract(w_arrow(1)),
-        assert(w_arrow(0)),
-        (
-            FACING = up, X = A, Y < B;
-            FACING = down, X = A, Y > B;
-            FACING = left, Y = B, X > A;
-            FACING = right, Y = B, X < A
-        ), 
-        retract(w_wumpus(_,_)),
-        assert(w_wumpus(0,0)),
-        write('\n\nBONUS: Wumpus scream which means you killed him!')
-    ), !, true;
-
-    write('\n\nWARNING: Your arrow missed the wumpus!'),
+shoot :- w_score(A), B is A-10, retract(w_score(_)), assert(w_score(B)), fail.
+shoot :- w_arrow(0), write('\n\nWARNING: You have no arrows to shoot.'), !.
+shoot :- 
+    w_hunter(X,Y,FACING),
+    w_wumpus(A,B),
     retract(w_arrow(1)),
-    assert(w_arrow(0)); true.
+    assert(w_arrow(0)),
+    (
+        FACING = up, X = A, Y < B;
+        FACING = down, X = A, Y > B;
+        FACING = left, Y = B, X > A;
+        FACING = right, Y = B, X < A
+    ),
+    retract(w_wumpus(_,_)),
+    assert(w_wumpus(0,0)),
+    write('\n\nBONUS: Wumpus scream which means you killed him!'), !.
+shoot :-
+    write('\n\nWARNING: Your arrow missed the wumpus!').
+
+% HUNTER CONTROL - CLIMB ARROW
+climb(_):- w_score(A), B is A-1, retract(w_score(_)), assert(w_score(B)), fail.
+climb(0) :- 
+    write('\n\nWARNING: You are in no conditions to get out of the cave.'), !.
+climb(1):-
+    w_score(SCORE),
+    write('\n\nWINNER: You managed to get out of the cave with the gold!\n'),
+    format('YOUR SCORE: ~d point(s).\n',[SCORE]).
 
 % TAKE HUNTER ACTION
-action(OPTION) :-
-    (
-        OPTION = move, move, !;
-        OPTION = left, left, !;
-        OPTION = right, right, !;
-        OPTION = grab, grab, !;
-        OPTION = shoot, shoot, !;
-        write('UNKNOWN ACTION: Please use move, left, right, grab or shoot.\n')
-    ).
+action(move,_) :- move, !.
+action(left,_) :- left, !.
+action(right,_) :- right, !.
+action(grab,GOAL) :- grab(GOAL), !.
+action(shoot,_) :- shoot, !.
+action(climb,GOAL) :- (GOAL = 1 -> climb(GOAL), !, fail; climb(GOAL), !).
+action(_,_) :- write('UNKNOWN ACTION: Please use move, left, right, grab or shoot.\n').
 
 % SHOW MENU TO USER
 menu :-
-    getPerceptions,
+    getPerceptions(GOAL),
     printHunterPosition,
     getSensors(SENSORES),
     printInfo(SENSORES),
     printScore,
     write('Next action: '), 
     read(OPTION),
-    action(OPTION),
+    action(OPTION, GOAL),
     menu.
 
 % RUN WUMPUS WORLD SIMULATION
-run :- 
-    clearWorld,
-    createWorld,
-    welcome,
-    init,
-    menu. 
+run :- clearWorld, createWorld, welcome, init, menu. 
