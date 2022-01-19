@@ -25,8 +25,8 @@ FONT = os.path.join(ASSETS, 'Arial.ttf')
 LIGHT = get_assets(ASSETS, 'light.png')[0]
 LIGHT = scale(
     LIGHT,
-    width=LIGHT.get_width()*0.5,
-    height=LIGHT.get_height()*0.5
+    width=LIGHT.get_width()*0.55,
+    height=LIGHT.get_height()*0.55
 )
 
 hunter_idle_path = os.path.join(ASSETS, 'hunter', 'idle')
@@ -59,6 +59,35 @@ HUNTER_SHOOT = list(
     )
 )
 
+warnings_path = os.path.join(ASSETS, 'warnings')
+W_BREEZE = get_assets(warnings_path, 'breeze.png')[0]
+W_BREEZE = scale(
+    W_BREEZE,
+    width=W_BREEZE.get_width() * 0.1,
+    height=W_BREEZE.get_height()*0.1
+)
+
+W_STENCH = get_assets(warnings_path, 'stench.png')[0]
+W_STENCH = scale(
+    W_STENCH,
+    width=W_STENCH.get_width() * 0.1,
+    height=W_STENCH.get_height()*0.1
+)
+
+W_BS = get_assets(warnings_path, 'breeze-stench.png')[0]
+W_BS = scale(
+    W_BS,
+    width=W_BS.get_width() * 0.1,
+    height=W_BS.get_height()*0.1
+)
+
+W_GOLD = get_assets(warnings_path, 'gold.png')[0]
+W_GOLD = scale(
+    W_GOLD,
+    width=W_GOLD.get_width() * 0.1,
+    height=W_GOLD.get_height()*0.1
+)
+
 wumpus_idle_path = os.path.join(ASSETS, 'wumpus', 'idle')
 WUMPUS_IDLE = get_assets(wumpus_idle_path, 'skeleton-idle')
 WUMPUS_IDLE = list(
@@ -87,6 +116,9 @@ PIT = scale(PIT, width=PIT.get_width()*2, height=PIT.get_height()*2)
 
 MAP = get_assets(files='map')[0]
 MAP = scale(MAP, width=MAP.get_width()*2.7, height=MAP.get_height()*2.7)
+
+EXIT = get_assets(files='exit')[0]
+EXIT = scale(EXIT, width=EXIT.get_width()*2.7, height=EXIT.get_height()*2.7)
 
 WIDTH = MAP.get_width()
 HEIGHT = MAP.get_height()

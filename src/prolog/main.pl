@@ -115,7 +115,7 @@ buildGold :-
 
 % CREATE WORLD
 createWorld :-    
-    assert(w_cells([[1,2],[1,3],[1,4],[2,1],[2,2],[2,3],[2,4],[3,1],[3,2],[3,3],[3,4],[4,1],[4,2],[4,3],[4,4]])),
+    assert(w_cells([[1,3],[1,4],[2,2],[2,3],[2,4],[3,1],[3,2],[3,3],[3,4],[4,1],[4,2],[4,3],[4,4]])),
     buildWalls,
     buildWumpus,
     buildPits,
@@ -130,8 +130,8 @@ welcome :-
     format('\n\n~`=t~60|\n'),
     format(' |~t~a~t~58+| ', ['[PROLOG] Wumpus-world AI Agent']),
     format('\n~`=t~60|'),
-    format('\n |~t~a~t~58+| ', ['ACTIONS: ready, move, left, right, grab, shoot']),
     format('\n |~t~a~t~58+| ', ['GOAL: get the gold and return to this position']),
+    format('\n |~t~a~t~58+| ', ['ACTIONS: ready, move, left, right, grab, shoot, climb']),
     format('\n |~t~a~t~58+| ', ['AVOID: wumpus, the walls and all the pits in the map']),
     format('\n |~t~a~t~58+| \n\n', ['BONUS: aim to the wumpus and kill it with the arrow']).
 
