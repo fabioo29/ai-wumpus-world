@@ -10,21 +10,24 @@
 %   x 1   2   3   4   %    AGENT scores when he: gets gold(+1000), dies(-1000), takes_action(-1), shoot_arrow(-10).
 
 % DEBUG MODE
-:- debug.
+% :- debug.
 
 % ENCODING LANGUAGE
 :- encoding(utf8).
 
-% DELETE DYNAMIC DATA
+% DELETE DYNAMIC DATA 
+% (w_ = world data, a_ = agent data, h_ = hunter data)
 :- abolish(w_wall/2). % wall position
 :- abolish(w_hunter/3). % hunter position
 :- abolish(w_wumpus/2). % wumpus position
 :- abolish(w_pit/2). % pit position
 :- abolish(w_gold/2). % gold position
-:- abolish(w_arrow/1). % arrow available?
-:- abolish(w_goal/1). % gold available?
-:- abolish(w_score/1). % hunter score
-:- abolish(w_cells/1). % hunter action
+:- abolish(w_goal/1). % world goal done?
+:- abolish(w_cells/1). % available cells
+:- abolish(h_arrow/1). % arrow available?
+:- abolish(h_score/1). % hunter score
+:- abolish(a_breeze_at/2). % save breeze pos
+:- abolish(a_stench_at/2). % save stench pos
 
 % CREATE DYNAMIC DATA
 :- dynamic ([
@@ -33,11 +36,20 @@
     w_wumpus/2, 
     w_pit/2, 
     w_gold/2, 
-    w_arrow/1, 
     w_goal/1, 
-    w_score/1, 
-    w_cells/1
+    w_cells/1,
+    h_score/1, 
+    h_arrow/1,
+    a_breeze_at/2,
+    a_stench_at/2
 ]).
+
+% AGENT HEURISTIC 
+% sensors = [stench, breeze, glitter] 
+% heuristic([_,_,_], climb) :- w_hunter(1,1,_), w_gold(1), !.
+% heuristic([_,_,1], grab) :- !.
+% heuristic([1,_,_], move) :- w_hunter(X,Y), assertz(a_stench_at(X,Y)).
+% heuristic([_,1,_], move) :- w_hunter(X,Y), assertz(a_breeze_at(X,Y)).
 
 % CLEAR WORLD
 clearWorld :-
@@ -46,9 +58,9 @@ clearWorld :-
     retractall(w_wumpus(_,_)),
     retractall(w_pit(_,_)),
     retractall(w_gold(_,_)),
-    retractall(w_arrow(_)),
+    retractall(h_arrow(_)),
     retractall(w_goal(_)),
-    retractall(w_score(_)),
+    retractall(h_score(_)),
     retractall(w_cells(_)).
 
 % BUILD BORDER MAP WALLS
@@ -109,9 +121,9 @@ createWorld :-
     buildPits,
     buildGold,
     assert(w_hunter(1,1,right)),
-    assert(w_arrow(1)),
+    assert(h_arrow(1)),
     assert(w_goal(0)),
-    assert(w_score(0)).
+    assert(h_score(0)).
 
 % PRINT WELCOME MESSAGE
 welcome :-
@@ -130,12 +142,12 @@ init :- init.
 % HUNTER HIT SOMETHING?
 hunterHit([0,0,0]).
 hunterHit([1, _, _]):- 
-    w_score(SCORE), write('\n\nGAME OVER: Wumpus killed you!\n'), 
-    w_score(A), B is A-1000, retract(w_score(_)), assert(w_score(B)),
+    h_score(SCORE), write('\n\nGAME OVER: Wumpus killed you!\n'), 
+    h_score(A), B is A-1000, retract(h_score(_)), assert(h_score(B)),
     format('YOUR SCORE: ~d point(s).\n',[SCORE]), !, fail.
 hunterHit([_, 1, _]):-
-    w_score(SCORE), write('\n\nGAME OVER: You fell into a pit!\n'), 
-    w_score(A), B is A-1000, retract(w_score(_)), assert(w_score(B)),
+    h_score(SCORE), write('\n\nGAME OVER: You fell into a pit!\n'), 
+    h_score(A), B is A-1000, retract(h_score(_)), assert(h_score(B)),
     format('YOUR SCORE: ~d point(s).\n',[SCORE]), !, fail.
 hunterHit([_, _, 1]):-
     write('\n\nWARNING: You hit the wall!'), w_hunter(X,Y,FACING),
@@ -164,7 +176,7 @@ printHunterPosition :-
 
 % PRINT HUNTER SCORE
 printScore :-
-    w_score(SCORE),
+    h_score(SCORE),
     format('Current score: ~d point(s).\n', [SCORE]).
 
 % STENCH SENSOR INFO - WUMPUS NEAR
@@ -200,7 +212,7 @@ printInfo(SENSORS) :-
 
 % HUNTER CONTROL - MOVE FORWARD
 move :- 
-    w_score(A), B is A-1, retract(w_score(_)), assert(w_score(B)),
+    h_score(A), B is A-1, retract(h_score(_)), assert(h_score(B)),
     w_hunter(X,Y,FACING),
     (
         FACING = up, plus(Y,+1,N_Y), N_X is X;
@@ -213,7 +225,7 @@ move :-
 
 % HUNTER CONTROL - ROTATE LEFT
 left :-
-    w_score(A), B is A-1, retract(w_score(_)), assert(w_score(B)),
+    h_score(A), B is A-1, retract(h_score(_)), assert(h_score(B)),
     w_hunter(X,Y,FACING),
     (
         FACING = up, NEW_FACING = left;
@@ -226,7 +238,7 @@ left :-
 
 % HUNTER CONTROL - ROTATE RIGHT
 right :-
-    w_score(A), B is A-1, retract(w_score(_)), assert(w_score(B)),
+    h_score(A), B is A-1, retract(h_score(_)), assert(h_score(B)),
     w_hunter(X,Y,FACING),
     (
         FACING = up, NEW_FACING = right;
@@ -238,7 +250,7 @@ right :-
     assertz(w_hunter(X,Y,NEW_FACING)).
 
 % HUNTER CONTRL - GRAB GOLD
-grab(_) :- w_score(A), B is A-1, retract(w_score(_)), assert(w_score(B)), fail.
+grab(_) :- h_score(A), B is A-1, retract(h_score(_)), assert(h_score(B)), fail.
 grab(1) :- 
     write('\n\nGOAL: You already grabbed all the gold.'), !.
 grab(0) :-
@@ -247,19 +259,19 @@ grab(0) :-
     retract(w_gold(X,Y)),
     retract(w_goal(0)),
     assert(w_goal(1)),
-    w_score(A), B is A+1000, retract(w_score(_)), assert(w_score(B)),
+    h_score(A), B is A+1000, retract(h_score(_)), assert(h_score(B)),
     write('\n\nGOAL: You grabbed the gold!. Now get out of the cave.'), !.
 grab(0) :-
     write('\n\nWARNING: There`s no gold to grab where you are.').
 
 % HUNTER CONTROL - SHOOT ARROW
-shoot :- w_score(A), B is A-10, retract(w_score(_)), assert(w_score(B)), fail.
-shoot :- w_arrow(0), write('\n\nWARNING: You have no arrows to shoot.'), !.
+shoot :- h_score(A), B is A-10, retract(h_score(_)), assert(h_score(B)), fail.
+shoot :- h_arrow(0), write('\n\nWARNING: You have no arrows to shoot.'), !.
 shoot :- 
     w_hunter(X,Y,FACING),
     w_wumpus(A,B),
-    retract(w_arrow(1)),
-    assert(w_arrow(0)),
+    retract(h_arrow(1)),
+    assert(h_arrow(0)),
     (
         FACING = up, X = A, Y < B;
         FACING = down, X = A, Y > B;
@@ -273,11 +285,11 @@ shoot :-
     write('\n\nWARNING: Your arrow missed the wumpus!').
 
 % HUNTER CONTROL - CLIMB ARROW
-climb(_):- w_score(A), B is A-1, retract(w_score(_)), assert(w_score(B)), fail.
+climb(_):- h_score(A), B is A-1, retract(h_score(_)), assert(h_score(B)), fail.
 climb(0) :- 
     write('\n\nWARNING: You are in no conditions to get out of the cave.'), !.
 climb(1):-
-    w_score(SCORE),
+    h_score(SCORE),
     write('\n\nWINNER: You managed to get out of the cave with the gold!\n'),
     format('YOUR SCORE: ~d point(s).\n',[SCORE]).
 
@@ -303,4 +315,5 @@ menu :-
     menu.
 
 % RUN WUMPUS WORLD SIMULATION
+run(agent) :- clearWorld, createWorld, !.
 run :- clearWorld, createWorld, welcome, init, menu. 

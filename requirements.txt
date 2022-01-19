@@ -1,0 +1,4 @@
+autopep8
+imageio
+pygame
+git+https://github.com/yuce/pyswip@master#egg=pyswip
