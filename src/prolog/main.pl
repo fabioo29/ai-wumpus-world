@@ -28,6 +28,7 @@
 :- abolish(h_score/1). % hunter score
 :- abolish(a_breeze_at/2). % save breeze pos
 :- abolish(a_stench_at/2). % save stench pos
+:- abolish(no_logs/1). % no logs
 
 % CREATE DYNAMIC DATA
 :- dynamic ([
@@ -41,7 +42,8 @@
     h_score/1, 
     h_arrow/1,
     a_breeze_at/2,
-    a_stench_at/2
+    a_stench_at/2,
+    no_logs/1
 ]).
 
 % AGENT HEURISTIC 
@@ -61,7 +63,8 @@ clearWorld :-
     retractall(h_arrow(_)),
     retractall(w_goal(_)),
     retractall(h_score(_)),
-    retractall(w_cells(_)).
+    retractall(w_cells(_)),
+    retractall(no_logs(_)). 
 
 % BUILD BORDER MAP WALLS
 buildWalls :-
@@ -142,15 +145,15 @@ init :- init.
 % HUNTER HIT SOMETHING?
 hunterHit([0,0,0]).
 hunterHit([1, _, _]):- 
-    h_score(SCORE), write('\n\nGAME OVER: Wumpus killed you!\n'), 
+    h_score(SCORE), (no_logs(NL), NL \= 1 -> write('\n\nGAME OVER: Wumpus killed you!\n'); true), 
     h_score(A), B is A-1000, retract(h_score(_)), assert(h_score(B)),
-    format('YOUR SCORE: ~d point(s).\n',[SCORE]), !, fail.
+    (no_logs(NL), NL \= 1 -> format('YOUR SCORE: ~d point(s).\n',[SCORE]); true), !, fail.
 hunterHit([_, 1, _]):-
-    h_score(SCORE), write('\n\nGAME OVER: You fell into a pit!\n'), 
+    h_score(SCORE), (no_logs(NL), NL \= 1 -> write('\n\nGAME OVER: You fell into a pit!\n'); true), 
     h_score(A), B is A-1000, retract(h_score(_)), assert(h_score(B)),
-    format('YOUR SCORE: ~d point(s).\n',[SCORE]), !, fail.
+    (no_logs(NL), NL \= 1 -> format('YOUR SCORE: ~d point(s).\n',[SCORE]); true), !, fail.
 hunterHit([_, _, 1]):-
-    write('\n\nWARNING: You hit the wall!'), w_hunter(X,Y,FACING),
+    (no_logs(NL), NL \= 1 -> write('\n\nWARNING: You hit the wall!'); true), w_hunter(X,Y,FACING),
     (
         FACING = up, N_Y is Y-1, N_X is X;
         FACING = down, N_Y is Y+1, N_X is X;
@@ -172,12 +175,12 @@ getPerceptions(P_goal) :-
 % GET HUNTER CURRENT POSITION
 printHunterPosition :-
     w_hunter(X,Y,FACING),
-    format('\nHunter position: (~d,~d), facing ~s.\n', [X, Y, FACING]).
+    (no_logs(NL), NL \= 1 -> format('\nHunter position: (~d,~d), facing ~s.\n', [X, Y, FACING]); true).
 
 % PRINT HUNTER SCORE
 printScore :-
     h_score(SCORE),
-    format('Current score: ~d point(s).\n', [SCORE]).
+    (no_logs(NL), NL \= 1 -> format('Current score: ~d point(s).\n', [SCORE]); true).
 
 % STENCH SENSOR INFO - WUMPUS NEAR
 stench(X,Y) :-
@@ -208,7 +211,7 @@ getSensors(SENSORS) :-
 
 % PRINT SENSORS INFO
 printInfo(SENSORS) :-
-    format('stench: ~d breeze: ~d glitter: ~d\n', SENSORS).
+    (no_logs(NL), NL \= 1 -> format('stench: ~d breeze: ~d glitter: ~d\n', SENSORS); true).
 
 % HUNTER CONTROL - MOVE FORWARD
 move :- 
@@ -252,7 +255,7 @@ right :-
 % HUNTER CONTRL - GRAB GOLD
 grab(_) :- h_score(A), B is A-1, retract(h_score(_)), assert(h_score(B)), fail.
 grab(1) :- 
-    write('\n\nGOAL: You already grabbed all the gold.'), !.
+    (no_logs(NL), NL \= 1 -> write('\n\nGOAL: You already grabbed all the gold.'); true), !.
 grab(0) :-
     w_hunter(X,Y,_),
     w_gold(X,Y),
@@ -260,13 +263,13 @@ grab(0) :-
     retract(w_goal(0)),
     assert(w_goal(1)),
     h_score(A), B is A+1000, retract(h_score(_)), assert(h_score(B)),
-    write('\n\nGOAL: You grabbed the gold!. Now get out of the cave.'), !.
+    (no_logs(NL), NL \= 1 -> write('\n\nGOAL: You grabbed the gold!. Now get out of the cave.'); true), !.
 grab(0) :-
-    write('\n\nWARNING: There`s no gold to grab where you are.').
+    (no_logs(NL), NL \= 1 -> write('\n\nWARNING: There`s no gold to grab where you are.'); true).
 
 % HUNTER CONTROL - SHOOT ARROW
 shoot :- h_score(A), B is A-10, retract(h_score(_)), assert(h_score(B)), fail.
-shoot :- h_arrow(0), write('\n\nWARNING: You have no arrows to shoot.'), !.
+shoot :- h_arrow(0), (no_logs(NL), NL \= 1 -> write('\n\nWARNING: You have no arrows to shoot.'); true), !.
 shoot :- 
     w_hunter(X,Y,FACING),
     w_wumpus(A,B),
@@ -280,18 +283,18 @@ shoot :-
     ),
     retract(w_wumpus(_,_)),
     assert(w_wumpus(0,0)),
-    write('\n\nBONUS: Wumpus scream which means you killed him!'), !.
+    (no_logs(NL), NL \= 1 -> write('\n\nBONUS: Wumpus scream which means you killed him!'); true), !.
 shoot :-
-    write('\n\nWARNING: Your arrow missed the wumpus!').
+    (no_logs(NL), NL \= 1 -> write('\n\nWARNING: Your arrow missed the wumpus!'); true).
 
 % HUNTER CONTROL - CLIMB ARROW
 climb(_):- h_score(A), B is A-1, retract(h_score(_)), assert(h_score(B)), fail.
 climb(0) :- 
-    write('\n\nWARNING: You are in no conditions to get out of the cave.'), !.
+    (no_logs(NL), NL \= 1 -> write('\n\nWARNING: You are in no conditions to get out of the cave.'); true), !.
 climb(1):-
     h_score(SCORE),
-    write('\n\nWINNER: You managed to get out of the cave with the gold!\n'),
-    format('YOUR SCORE: ~d point(s).\n',[SCORE]).
+    (no_logs(NL), NL \= 1 -> write('\n\nWINNER: You managed to get out of the cave with the gold!\n'); true),
+    (no_logs(NL), NL \= 1 -> format('YOUR SCORE: ~d point(s).\n',[SCORE]); true).
 
 % TAKE HUNTER ACTION
 action(move,_) :- move, !.
@@ -315,5 +318,5 @@ menu :-
     menu.
 
 % RUN WUMPUS WORLD SIMULATION
-run(agent) :- clearWorld, createWorld, !.
-run :- clearWorld, createWorld, welcome, init, menu. 
+run(pygame) :- clearWorld, assert(no_logs(1)),createWorld, !.
+run :- clearWorld, assert(no_logs(0)), createWorld, welcome, init, menu. 
