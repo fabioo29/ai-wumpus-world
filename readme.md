@@ -1,3 +1,3 @@
 <p align="center">
-  <img src="assets/wumpus-world.png" />
+  <img src="images/wumpus-world.png" />
 </p>

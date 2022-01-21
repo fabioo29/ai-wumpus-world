@@ -10,7 +10,7 @@
 %   x 1   2   3   4   %    AGENT scores when he: gets gold(+1000), dies(-1000), takes_action(-1), shoot_arrow(-10).
 
 % DEBUG MODE
-% :- debug.
+:- debug.
 
 % ENCODING LANGUAGE
 :- encoding(utf8).
@@ -26,8 +26,8 @@
 :- abolish(w_cells/1). % available cells
 :- abolish(h_arrow/1). % arrow available?
 :- abolish(h_score/1). % hunter score
-:- abolish(a_breeze_at/2). % save breeze pos
-:- abolish(a_stench_at/2). % save stench pos
+:- abolish(a_range/3). % save range actions
+:- abolish(a_visited/2). % save visited cells
 :- abolish(no_logs/1). % no logs
 
 % CREATE DYNAMIC DATA
@@ -41,17 +41,10 @@
     w_cells/1,
     h_score/1, 
     h_arrow/1,
-    a_breeze_at/2,
-    a_stench_at/2,
+    a_range/3,
+    a_visited/2,
     no_logs/1
 ]).
-
-% AGENT HEURISTIC 
-% sensors = [stench, breeze, glitter] 
-% heuristic([_,_,_], climb) :- w_hunter(1,1,_), w_gold(1), !.
-% heuristic([_,_,1], grab) :- !.
-% heuristic([1,_,_], move) :- w_hunter(X,Y), assertz(a_stench_at(X,Y)).
-% heuristic([_,1,_], move) :- w_hunter(X,Y), assertz(a_breeze_at(X,Y)).
 
 % CLEAR WORLD
 clearWorld :-
@@ -64,6 +57,8 @@ clearWorld :-
     retractall(w_goal(_)),
     retractall(h_score(_)),
     retractall(w_cells(_)),
+    retractall(a_range(_,_,_)),
+    retractall(a_visited(_,_)),
     retractall(no_logs(_)). 
 
 % BUILD BORDER MAP WALLS
@@ -173,14 +168,10 @@ getPerceptions(P_goal) :-
     hunterHit([P_wumpus,P_pit,P_wall]).
 
 % GET HUNTER CURRENT POSITION
-printHunterPosition :-
-    w_hunter(X,Y,FACING),
-    (no_logs(NL), NL \= 1 -> format('\nHunter position: (~d,~d), facing ~s.\n', [X, Y, FACING]); true).
+printHunterPosition :- w_hunter(X,Y,FACING), format('\nHunter position: (~d,~d), facing ~s.\n', [X, Y, FACING]).
 
 % PRINT HUNTER SCORE
-printScore :-
-    h_score(SCORE),
-    (no_logs(NL), NL \= 1 -> format('Current score: ~d point(s).\n', [SCORE]); true).
+printScore :- h_score(SCORE), format('Current score: ~d point(s).\n', [SCORE]).
 
 % STENCH SENSOR INFO - WUMPUS NEAR
 stench(X,Y) :-
@@ -210,8 +201,7 @@ getSensors(SENSORS) :-
     SENSORS = [S_stench, S_breeze, S_glitter].
 
 % PRINT SENSORS INFO
-printInfo(SENSORS) :-
-    (no_logs(NL), NL \= 1 -> format('stench: ~d breeze: ~d glitter: ~d\n', SENSORS); true).
+printInfo(SENSORS) :- format('stench: ~d breeze: ~d glitter: ~d\n', SENSORS).
 
 % HUNTER CONTROL - MOVE FORWARD
 move :- 
@@ -282,7 +272,6 @@ shoot :-
         FACING = right, Y = B, X < A
     ),
     retract(w_wumpus(_,_)),
-    assert(w_wumpus(0,0)),
     (no_logs(NL), NL \= 1 -> write('\n\nBONUS: Wumpus scream which means you killed him!'); true), !.
 shoot :-
     (no_logs(NL), NL \= 1 -> write('\n\nWARNING: Your arrow missed the wumpus!'); true).
@@ -317,6 +306,114 @@ menu :-
     action(OPTION, GOAL),
     menu.
 
+% AGENT NEXT ACTION
+getStep(HX, HY, up, [NX, NY], ACTION) :- NX is HX, NY is HY + 1, ACTION = move, !.
+getStep(HX, HY, up, [NX, NY], ACTION) :- NX is HX, NY is HY - 1, ACTION = right, retract(a_range(HX,HY,COST)), NC is COST-25, assert(a_range(HX,HY,NC)), !.
+getStep(HX, HY, up, [NX, NY], ACTION) :- NX is HX - 1, NY is HY, ACTION = left, retract(a_range(HX,HY,COST)), NC is COST-25, assert(a_range(HX,HY,NC)), !.
+getStep(HX, HY, up, [NX, NY], ACTION) :- NX is HX + 1, NY is HY, ACTION = right, retract(a_range(HX,HY,COST)), NC is COST-25, assert(a_range(HX,HY,NC)), !.
+
+getStep(HX, HY, right, [NX, NY], ACTION) :- NX is HX + 1, NY is HY, ACTION = move, !.
+getStep(HX, HY, right, [NX, NY], ACTION) :- NX is HX, NY is HY - 1, ACTION = right, retract(a_range(HX,HY,COST)), NC is COST-25, assert(a_range(HX,HY,NC)), !.
+getStep(HX, HY, right, [NX, NY], ACTION) :- NX is HX, NY is HY + 1, ACTION = left, retract(a_range(HX,HY,COST)), NC is COST-25, assert(a_range(HX,HY,NC)), !.
+getStep(HX, HY, right, [NX, NY], ACTION) :- NX is HX - 1, NY is HY, ACTION = right, retract(a_range(HX,HY,COST)), NC is COST-25, assert(a_range(HX,HY,NC)), !.
+
+getStep(HX, HY, down, [NX, NY], ACTION) :- NX is HX, NY is HY -1, ACTION = move, !.
+getStep(HX, HY, down, [NX, NY], ACTION) :- NX is HX, NY is HY + 1, ACTION = right, retract(a_range(HX,HY,COST)), NC is COST-25, assert(a_range(HX,HY,NC)), !.
+getStep(HX, HY, down, [NX, NY], ACTION) :- NX is HX + 1, NY is HY, ACTION = left, retract(a_range(HX,HY,COST)), NC is COST-25, assert(a_range(HX,HY,NC)), !.
+getStep(HX, HY, down, [NX, NY], ACTION) :- NX is HX - 1, NY is HY, ACTION = right, retract(a_range(HX,HY,COST)), NC is COST-25, assert(a_range(HX,HY,NC)), !.
+
+getStep(HX, HY, left, [NX, NY], ACTION) :- NX is HX - 1, NY is HY, ACTION = move, !.
+getStep(HX, HY, left, [NX, NY], ACTION) :- NX is HX, NY is HY + 1, ACTION = right, retract(a_range(HX,HY,COST)), NC is COST-25, assert(a_range(HX,HY,NC)), !.
+getStep(HX, HY, left, [NX, NY], ACTION) :- NX is HX, NY is HY - 1, ACTION = left, retract(a_range(HX,HY,COST)), NC is COST-25, assert(a_range(HX,HY,NC)), !.
+getStep(HX, HY, left, [NX, NY], ACTION) :- NX is HX + 1, NY is HY, ACTION = right, retract(a_range(HX,HY,COST)), NC is COST-25, assert(a_range(HX,HY,NC)), !.
+
+% AGENT BEST CELL OPTION
+cellsCost(X,Y, up, 0, COST) :- U is Y+1, \+w_wall(X,U), a_range(X,U,COST).
+cellsCost(X,Y, down, 0, COST) :- D is Y-1, \+w_wall(X,D), a_range(X,D,COST).
+cellsCost(X,Y, left, 0, COST) :- L is X-1, \+w_wall(L,Y), a_range(L,Y,COST).
+cellsCost(X,Y, right, 0, COST) :- R is X+1, \+w_wall(R,Y), a_range(R,Y,COST).
+cellsCost(X,Y, _, 0, COST) :- L is X-1, \+w_wall(L,Y), a_range(L,Y,COST).
+cellsCost(X,Y, _, 0, COST) :- U is Y+1, \+w_wall(X,U), a_range(X,U,COST).
+cellsCost(X,Y, _, 0, COST) :- R is X+1, \+w_wall(R,Y), a_range(R,Y,COST).
+cellsCost(X,Y, _, 0, COST) :- D is Y-1, \+w_wall(X,D), a_range(X,D,COST).
+
+cellsCost(X,Y, up, 1, COST) :- U is Y+1, \+w_wall(X,U), a_visited(X,U), a_range(X,U,COST).
+cellsCost(X,Y, down, 1, COST) :- D is Y-1, \+w_wall(X,D), a_visited(X,D), a_range(X,D,COST).
+cellsCost(X,Y, left, 1, COST) :- L is X-1, \+w_wall(L,Y), a_visited(L,Y), a_range(L,Y,COST).
+cellsCost(X,Y, right, 1, COST) :- R is X+1, \+w_wall(R,Y), a_visited(R,Y), a_range(R,Y,COST).
+cellsCost(X,Y, _, 1, COST) :- L is X-1, \+w_wall(L,Y), a_visited(L,Y), a_range(L,Y,COST).
+cellsCost(X,Y, _, 1, COST) :- U is Y+1, \+w_wall(X,U), a_visited(X,U), a_range(X,U,COST).
+cellsCost(X,Y, _, 1, COST) :- R is X+1, \+w_wall(R,Y), a_visited(R,Y), a_range(R,Y,COST).
+cellsCost(X,Y, _, 1, COST) :- D is Y-1, \+w_wall(X,D), a_visited(X,D), a_range(X,D,COST).
+
+% HELPER FIND ADJACENT CELL WITH SPECIFIC COST
+findCell(X,Y,up,COST,CELL) :- a_range(NX, NY, COST), NX = X, TY is Y + 1, NY = TY, CELL = [NX, NY], !.
+findCell(X,Y,right,COST,CELL) :- a_range(NX, NY, COST), TX is X + 1, NX = TX, NY = Y, CELL = [NX, NY], !.
+findCell(X,Y,down,COST,CELL) :- a_range(NX, NY, COST), NX = X, TY is Y - 1, NY = TY, CELL = [NX, NY], !.
+findCell(X,Y,left,COST,CELL) :- a_range(NX, NY, COST), TX is X - 1, NX = TX, NY = Y, CELL = [NX, NY], !.
+findCell(X,Y,_,COST,CELL) :- a_range(NX, NY, COST), TX is X - 1, NX = TX, NY = Y, CELL = [NX, NY], !.
+findCell(X,Y,_,COST,CELL) :- a_range(NX, NY, COST), NX = X, TY is Y + 1, NY = TY, CELL = [NX, NY], !.
+findCell(X,Y,_,COST,CELL) :- a_range(NX, NY, COST), TX is X + 1, NX = TX, NY = Y, CELL = [NX, NY], !.
+findCell(X,Y,_,COST,CELL) :- a_range(NX, NY, COST), NX = X, TY is Y - 1, NY = TY, CELL = [NX, NY], !.
+
+% AGENT TAKE NEXT STEP
+nextMove(ACTION, GOAL) :- 
+    w_hunter(X,Y,FACING),
+    findall(C, cellsCost(X, Y, FACING, GOAL, C), COSTS),
+    (GOAL = 0 -> min_list(COSTS, COST); max_list(COSTS, COST)),
+    findCell(X, Y, FACING, COST, CELL),
+    getStep(X,Y, FACING, CELL, ACTION).
+
+% UPDATE AGENT DATABASE
+knowledge(X, Y, stench) :- L is X - 1, \+w_wall(L,Y), \+a_visited(L,Y), ((a_range(L,Y,C), C \= 25) -> (C = 975 -> N_C is 1000-975; N_C is 1000), retract(a_range(L,Y,_)), assert(a_range(L,Y,N_C)); assert(a_range(L,Y,1000))), fail.
+knowledge(X, Y, stench) :- U is Y + 1, \+w_wall(X,U), \+a_visited(X,U), ((a_range(X,U,C), C \= 25) -> (C = 975 -> N_C is 1000-975; N_C is 1000), retract(a_range(X,U,_)), assert(a_range(X,U,N_C)); assert(a_range(X,U,1000))), fail.
+knowledge(X, Y, stench) :- R is X + 1, \+w_wall(R,Y), \+a_visited(R,Y), ((a_range(R,Y,C), C \= 25) -> (C = 975 -> N_C is 1000-975; N_C is 1000), retract(a_range(R,Y,_)), assert(a_range(R,Y,N_C)); assert(a_range(R,Y,1000))), fail.
+knowledge(X, Y, stench) :- D is Y - 1, \+w_wall(X,D), \+a_visited(X,D), ((a_range(X,D,C), C \= 25) -> (C = 975 -> N_C is 1000-975; N_C is 1000), retract(a_range(X,D,_)), assert(a_range(X,D,N_C)); assert(a_range(X,D,1000))), fail; true.
+
+knowledge(X, Y, breeze) :- L is X - 1, \+w_wall(L,Y), \+a_visited(L,Y), ((a_range(L,Y,C), C \= 25) -> (C = 1000 -> N_C is 1000-975; N_C is 975), retract(a_range(L,Y,_)), assert(a_range(L,Y,N_C)); assert(a_range(L,Y,975))), fail.
+knowledge(X, Y, breeze) :- U is Y + 1, \+w_wall(X,U), \+a_visited(X,U), ((a_range(X,U,C), C \= 25) -> (C = 1000 -> N_C is 1000-975; N_C is 975), retract(a_range(X,U,_)), assert(a_range(X,U,N_C)); assert(a_range(X,U,975))), fail.
+knowledge(X, Y, breeze) :- R is X + 1, \+w_wall(R,Y), \+a_visited(R,Y), ((a_range(R,Y,C), C \= 25) -> (C = 1000 -> N_C is 1000-975; N_C is 975), retract(a_range(R,Y,_)), assert(a_range(R,Y,N_C)); assert(a_range(R,Y,975))), fail.
+knowledge(X, Y, breeze) :- D is Y - 1, \+w_wall(X,D), \+a_visited(X,D), ((a_range(X,D,C), C \= 25) -> (C = 1000 -> N_C is 1000-975; N_C is 975), retract(a_range(X,D,_)), assert(a_range(X,D,N_C)); assert(a_range(X,D,975))), fail; true.
+
+knowledge(X, Y, safe) :- L is X - 1, \+w_wall(L,Y), \+a_visited(L,Y), (a_range(L,Y,_) -> retract(a_range(L,Y,_)); true), assert(a_range(L,Y,0)), fail.
+knowledge(X, Y, safe) :- U is Y + 1, \+w_wall(X,U), \+a_visited(X,U), (a_range(X,U,_) -> retract(a_range(X,U,_)); true), assert(a_range(X,U,0)), fail.
+knowledge(X, Y, safe) :- R is X + 1, \+w_wall(R,Y), \+a_visited(R,Y), (a_range(R,Y,_) -> retract(a_range(R,Y,_)); true), assert(a_range(R,Y,0)), fail.
+knowledge(X, Y, safe) :- D is Y - 1, \+w_wall(X,D), \+a_visited(X,D), (a_range(X,D,_) -> retract(a_range(X,D,_)); true), assert(a_range(X,D,0)), fail; true.
+
+% AGENT HEURISTIC 
+heuristic(_,_) :- w_hunter(X,Y,_), w_goal(0), (a_range(X,Y,COST) -> retract(a_range(X,Y,COST)), N_COST is COST + 25, assert(a_range(X,Y,N_COST)); assert(a_range(X,Y,25))), fail.
+heuristic(_,_) :- w_hunter(X,Y,_), w_goal(1), (a_range(X,Y,COST) -> retract(a_range(X,Y,COST)), N_COST is COST - 25, assert(a_range(X,Y,N_COST)); assert(a_range(X,Y,25))), fail.
+heuristic(_,_) :- w_hunter(X,Y,_), \+a_visited(X,Y), assert(a_visited(X,Y)), fail.
+heuristic([_,_,_], climb) :- w_hunter(1,1,_), \+w_gold(_,_), !.
+heuristic([_,_,1], grab) :- !.
+heuristic([_,_,_], shoot) :- fail, !.
+heuristic([1,_,_], OPTION) :- w_hunter(X,Y,_), knowledge(X, Y, stench), w_goal(GOAL), nextMove(OPTION, GOAL), !.
+heuristic([_,1,_], OPTION) :- w_hunter(X,Y,_), knowledge(X, Y, breeze), w_goal(GOAL), nextMove(OPTION, GOAL), !.
+heuristic([_,_,_], OPTION) :- w_hunter(X,Y,_), knowledge(X, Y, safe), w_goal(GOAL), nextMove(OPTION, GOAL), !.
+
+% PRINT ADJACENT CELLS COST 
+printRange :- write('Costs: '), fail.
+printRange :- w_hunter(X,Y,_), L is X-1, (a_range(L,Y,LEFT) -> format('[l: ~w] ', LEFT); format('[l: NA] ')), fail.
+printRange :- w_hunter(X,Y,_), U is Y+1, (a_range(X,U,UP) -> format('[u: ~w] ', UP); format('[u: NA] ')), fail.
+printRange :- w_hunter(X,Y,_), R is X+1, (a_range(R,Y,RIGHT) -> format('[r: ~w] ', RIGHT); format('[r: NA] ')), fail.
+printRange :- w_hunter(X,Y,_), D is Y-1, (a_range(X,D,DOWN) -> format('[d: ~w].~n', DOWN); format('[d: NA].~n')).
+
+% RUN LOOP FOR THE AGENT TO RUN
+runloop(STEP) :-
+    getPerceptions(GOAL),
+    getSensors(SENSORES),
+    heuristic(SENSORES, OPTION),
+    (no_logs(NL), NL \= 1 -> printHunterPosition; true),
+    (no_logs(NL), NL \= 1 -> printRange; true),
+    (no_logs(NL), NL \= 1 -> printInfo(SENSORES); true),
+    (no_logs(NL), NL \= 1 -> printScore; true),
+    (no_logs(NL), NL \= 1 -> write('Next action: '); true),
+    (no_logs(NL), NL \= 1 -> format('~p.~n', [OPTION]); true),
+    action(OPTION, GOAL),
+    STEP \= -1, N_STEP is STEP + 1,
+    runloop(N_STEP).
+
 % RUN WUMPUS WORLD SIMULATION
 run(pygame) :- clearWorld, assert(no_logs(1)),createWorld, !.
+run(agent) :- clearWorld, assert(no_logs(0)),createWorld, runloop(0), !.
 run :- clearWorld, assert(no_logs(0)), createWorld, welcome, init, menu. 

@@ -15,7 +15,7 @@ from date import (
 prolog = Prolog()
 prolog.consult(PROLOG_PATH)
 
-AGENT = False
+AGENT = True
 
 
 class element:
@@ -108,6 +108,9 @@ class Wumpus(element, pygame.sprite.Sprite):
         self.rect.center = (self.x, self.y)
 
     def update(self):
+        if not list(prolog.query('w_wumpus(X,Y).')) and self.x != self.y != -999:
+            self.x, self.y = (-999, -999)
+
         self.current_sprite += self.anim_speed
         if self.current_sprite >= len(self.sprites[self.current_state]):
             self.current_sprite = 0
@@ -127,6 +130,10 @@ class Gold(element, pygame.sprite.Sprite):
     def __init__(self, x, y):
         super().__init__(x, y)
         self.image = GOLD
+
+    def update(self):
+        if not list(prolog.query('w_gold(X,Y).')) and self.x != self.y != -999:
+            self.x, self.y = (-999, -999)
 
     def draw(self):
         self.rect = self.image.get_rect(center=(self.x, self.y))
@@ -250,12 +257,9 @@ def user_controller(event, hunter, wumpus, gold):
             list(prolog.query("right."))
         if event.key == pygame.K_s:
             list(prolog.query("shoot."))
-            if list(prolog.query('w_wumpus(0,0)')):
-                wumpus.x, wumpus.y = (-999, -999)
         if event.key == pygame.K_g:
             if list(list(prolog.query('w_hunter(X,Y,_), w_gold(X,Y), w_goal(0).'))):
-                if list(prolog.query("grab(0).")):
-                    gold.x, gold.y = (-999, -999)
+                list(prolog.query("grab(0)."))
         if event.key == pygame.K_c:
             if list(list(prolog.query('w_hunter(1,1,_), w_goal(1)'))):
                 list(prolog.query("climb(1)."))
@@ -265,7 +269,9 @@ def user_controller(event, hunter, wumpus, gold):
 def main() -> None:
     """Main function to run the simulation."""
 
-    list(prolog.query("run(agent)."))
+    list(prolog.query("run(pygame)."))
+    last = pygame.time.get_ticks()
+    cooldown = FPS * 6
 
     hunter = Hunter(*list(prolog.query("w_hunter( X, Y, Z)."))[0].values())
     wumpus = Wumpus(*list(prolog.query("w_wumpus( X, Y)."))[0].values())
@@ -287,13 +293,16 @@ def main() -> None:
                 sys.exit()
             if event.type == pygame.MOUSEBUTTONDOWN:
                 print(pygame.mouse.get_pos())
-            if AGENT:
-                list(prolog.query("step."))
-            else:
+            if not AGENT:
                 user_controller(event, hunter, wumpus, gold)
 
         update_objects(light, moving_sprites, *pits, gold)
         draw_window(light, moving_sprites, *pits, gold)
+
+        now = pygame.time.get_ticks()
+        if now - last >= cooldown:
+            last = now
+            list(prolog.query("runloop(-1)."))
 
 
 if __name__ == '__main__':
