@@ -477,6 +477,6 @@ runloop(STEP) :-
     runloop(N_STEP).
 
 % RUN WUMPUS WORLD SIMULATION
-run(pygame) :- clearWorld, assert(no_logs(0)),createWorld, !.
+run(pygame) :- clearWorld, assert(no_logs(1)),createWorld, !.
 run(agent) :- clearWorld, assert(no_logs(0)),createWorld, runloop(0), !.
 run :- clearWorld, assert(no_logs(0)), createWorld, welcome, init, menu. 
