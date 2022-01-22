@@ -3,7 +3,7 @@ import sys
 import pygame
 
 from pyswip import Prolog
-from utils import blit_rotate, rotate
+from utils import rotate
 from date import (
     PROLOG_PATH, FPS, WIN, FONT,
     MAP, LIGHT, WIDTH, HEIGHT, POSITIONS,
@@ -15,7 +15,7 @@ from date import (
 prolog = Prolog()
 prolog.consult(PROLOG_PATH)
 
-AGENT = True
+IS_AGENT = True
 
 
 class element:
@@ -248,28 +248,28 @@ def winner():
 
 
 def user_controller(event, hunter, wumpus, gold):
-    if event.type == pygame.KEYDOWN:
-        if event.key == pygame.K_UP and valid_move(hunter):
-            list(prolog.query("move."))
-        if event.key == pygame.K_LEFT:
-            list(prolog.query("left."))
-        if event.key == pygame.K_RIGHT:
-            list(prolog.query("right."))
-        if event.key == pygame.K_s:
-            list(prolog.query("shoot."))
-        if event.key == pygame.K_g:
-            if list(list(prolog.query('w_hunter(X,Y,_), w_gold(X,Y), w_goal(0).'))):
-                list(prolog.query("grab(0)."))
-        if event.key == pygame.K_c:
-            if list(list(prolog.query('w_hunter(1,1,_), w_goal(1)'))):
-                list(prolog.query("climb(1)."))
-                winner()
+    if event.key == pygame.K_UP and valid_move(hunter):
+        list(prolog.query("move."))
+    if event.key == pygame.K_LEFT:
+        list(prolog.query("left."))
+    if event.key == pygame.K_RIGHT:
+        list(prolog.query("right."))
+    if event.key == pygame.K_s:
+        list(prolog.query("shoot."))
+    if event.key == pygame.K_g:
+        if list(list(prolog.query('w_hunter(X,Y,_), w_gold(X,Y), w_goal(0).'))):
+            list(prolog.query("grab(0)."))
+    if event.key == pygame.K_c:
+        if list(list(prolog.query('w_hunter(1,1,_), w_goal(1)'))):
+            list(prolog.query("climb(1)."))
+            winner()
 
 
 def main() -> None:
     """Main function to run the simulation."""
 
     list(prolog.query("run(pygame)."))
+
     last = pygame.time.get_ticks()
     cooldown = FPS * 6
 
@@ -293,16 +293,21 @@ def main() -> None:
                 sys.exit()
             if event.type == pygame.MOUSEBUTTONDOWN:
                 print(pygame.mouse.get_pos())
-            if not AGENT:
-                user_controller(event, hunter, wumpus, gold)
+            if event.type == pygame.KEYDOWN:
+                if not IS_AGENT:
+                    user_controller(event, hunter, wumpus, gold)
 
         update_objects(light, moving_sprites, *pits, gold)
         draw_window(light, moving_sprites, *pits, gold)
 
-        now = pygame.time.get_ticks()
-        if now - last >= cooldown:
-            last = now
-            list(prolog.query("runloop(-1)."))
+        if list(prolog.query("w_hunter(1,1,_), w_goal(1).")):
+            winner()
+
+        if IS_AGENT:
+            now = pygame.time.get_ticks()
+            if now - last >= cooldown:
+                last = now
+                list(prolog.query("runloop(-1)."))
 
 
 if __name__ == '__main__':
