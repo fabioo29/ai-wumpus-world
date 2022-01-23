@@ -47,11 +47,13 @@ Each action is determined given the agent info like it current state aswell as t
 
 With the prolog logic implemented we've decided to create a user friendly interface to better follow the agent's actions instead of doing it from the console. We've also decided to create a random map for the agent to start with. For the game itself we've used Pygame with python and pyswip package to make the connection between swi-prolog and python. We then added a feature to the implementation where the user can test the game too.
 
-</br>
-<figure align="center">
+</br>    
+<p align="center">
     <img src="images/interface.gif" alt="wumpus world interface(pygame)" width="400" height="400" />
-    <figcaption>Wumpus game interface without the fog (pygame)</figcaption>
-  </figure>
+    
+<p align="center"><em>Wumpus game interface without the fog (pygame)</em></p>
+
+  </p>
   </br>
 
 **_Tested with_** with random placed wumpus, pits and gold in the map (70% win).
