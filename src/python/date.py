@@ -1,7 +1,7 @@
 import os
 import pygame
 
-from utils import scale, get_assets, get_mask, rotate
+from utils import scale, get_assets, rotate
 
 pygame.init()
 

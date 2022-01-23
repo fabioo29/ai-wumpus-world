@@ -17,13 +17,6 @@ def rotate(image, angle):
     return image
 
 
-def blit_rotate(win, image, top_left, angle):
-    rotated_image = pygame.transform.rotate(image, angle)
-    new_rect = rotated_image.get_rect(
-        center=image.get_rect(topleft=top_left).center)
-    win.blit(rotated_image, new_rect.topleft)
-
-
 def get_assets(folder: str = None, files: str = ''):
     """get all assets with name starting with files... from the specified folder"""
     if folder:
@@ -40,8 +33,3 @@ def get_assets(folder: str = None, files: str = ''):
             elem = pygame.image.load(os.path.join(assets_path, file))
             assets.append(elem)
     return assets
-
-
-def get_mask(images):
-    """get a mask from the images"""
-    return [pygame.mask.from_surface(image) for image in images]

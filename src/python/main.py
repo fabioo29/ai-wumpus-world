@@ -1,6 +1,6 @@
-import os
 import sys
 import pygame
+import argparse
 
 from pyswip import Prolog
 from utils import rotate
@@ -15,15 +15,12 @@ from date import (
 prolog = Prolog()
 prolog.consult(PROLOG_PATH)
 
-IS_AGENT = True
-
 
 class element:
+    """class to save element position and draw it"""
+
     def __init__(self, y, x):
         self.x, self.y = POSITIONS[x-1][y-1]
-
-    def update(self):
-        pass
 
     def draw(self):
         self.rect = self.image.get_rect(center=(self.x, self.y))
@@ -31,6 +28,8 @@ class element:
 
 
 class Light():
+    """class to draw the light effect on the hunter position"""
+
     def __init__(self):
         self.x, self.y = 0, 0
         self.image = LIGHT
@@ -54,6 +53,8 @@ class Light():
 
 
 class Hunter(element, pygame.sprite.Sprite):
+    """class with the hunter information"""
+
     def __init__(self, x, y, orientation):
         element.__init__(self, x, y)
         pygame.sprite.Sprite.__init__(self)
@@ -92,6 +93,8 @@ class Hunter(element, pygame.sprite.Sprite):
 
 
 class Wumpus(element, pygame.sprite.Sprite):
+    """class with the wumpus information"""
+
     def __init__(self, x, y):
         element.__init__(self, x, y)
         pygame.sprite.Sprite.__init__(self)
@@ -121,18 +124,22 @@ class Wumpus(element, pygame.sprite.Sprite):
 
 
 class Pit(element, pygame.sprite.Sprite):
+    """class with the pit information"""
+
     def __init__(self, x, y):
         super().__init__(x, y)
         self.image = PIT
 
 
 class Gold(element, pygame.sprite.Sprite):
+    """class with the gold information"""
+
     def __init__(self, x, y):
         super().__init__(x, y)
         self.image = GOLD
 
     def update(self):
-        if not list(prolog.query('w_gold(X,Y).')) and self.x != self.y != -999:
+        if list(prolog.query('w_gold(0,0).')) and self.x != self.y != -999:
             self.x, self.y = (-999, -999)
 
     def draw(self):
@@ -143,15 +150,47 @@ class Gold(element, pygame.sprite.Sprite):
             WIN.blit(EXIT, (0, 0))
 
 
-def update_objects(light, sprites, *elems):
-    """update the car moves"""
-    sprites.update()
-    [el.update() for el in elems]
-    light.update(sprites.sprites()[0])
+def valid_move(hunter_obj):
+    """avoid moving hunter into the wall before prolog do it"""
+    facing = hunter_obj.rotation
+    x, y = hunter_obj.x, hunter_obj.y
+
+    if (
+        (facing == 'right' and x == 695) or
+        (facing == 'left' and x == 107) or
+        (facing == 'up' and y == 107) or
+        (facing == 'down' and y == 670)
+    ):
+        return False
+    return True
+
+
+def winner():
+    """function to draw the winner screen"""
+    text = 'WINNER: You managed to get the gold out!'
+
+    font = pygame.font.Font(FONT, 30)
+    text_surface = font.render(text, True, pygame.color.Color('white'))
+    text_rect = text_surface.get_rect()
+    text_rect.center = (WIDTH/2, HEIGHT/3)
+    WIN.blit(text_surface, text_rect)
+
+    score = list(prolog.query("h_score(X)"))[0]['X']
+    text = 'Your score: {} point(s).'.format(score)
+    text_surface = font.render(text, True, pygame.color.Color('white'))
+    text_rect = text_surface.get_rect()
+    text_rect.center = (WIDTH/2, HEIGHT/3 + 40)
+    WIN.blit(text_surface, text_rect)
+
+    pygame.display.update()
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                sys.exit()
 
 
 def game_over():
-
+    """function to draw the game over screen"""
     hunter_pos = list(list(prolog.query("w_hunter(X,Y,_)."))[0].values())
     query_params = f'({hunter_pos[0]},{hunter_pos[1]})'
     wumpus_hit = list(prolog.query(f'w_wumpus{query_params}.')) == [{}]
@@ -183,9 +222,9 @@ def game_over():
                     sys.exit()
 
 
-def draw_sensors(hunter_obj):
+def update_elems(hunter_obj):
+    """update and draw the game elements"""
     x, y = hunter_obj.x + 20, hunter_obj.y - 75
-
     sensors = list(prolog.query("getSensors(X)."))[0]['X']
     stench, breeze, glitter = sensors
     if glitter:
@@ -197,7 +236,14 @@ def draw_sensors(hunter_obj):
     elif breeze:
         WIN.blit(W_BREEZE, (x, y))
 
-    game_over()  # check game over
+    game_over()  # game's over?
+
+
+def update_objects(light, sprites, *elems):
+    """update all the objects in the game"""
+    sprites.update()
+    [el.update() for el in elems]
+    light.update(sprites.sprites()[0])
 
 
 def draw_window(light, sprites, *elems):
@@ -206,48 +252,12 @@ def draw_window(light, sprites, *elems):
     [el.draw() for el in elems]
     sprites.draw(WIN)
     light.draw()
-    draw_sensors(sprites.sprites()[0])
+    update_elems(sprites.sprites()[0])
     pygame.display.update()
 
 
-def valid_move(hunter_obj):
-    facing = hunter_obj.rotation
-    x, y = hunter_obj.x, hunter_obj.y
-
-    if (
-        (facing == 'right' and x == 695) or
-        (facing == 'left' and x == 107) or
-        (facing == 'up' and y == 107) or
-        (facing == 'down' and y == 670)
-    ):
-        return False
-    return True
-
-
-def winner():
-    text = 'WINNER: You managed to get the gold out!'
-
-    font = pygame.font.Font(FONT, 30)
-    text_surface = font.render(text, True, pygame.color.Color('white'))
-    text_rect = text_surface.get_rect()
-    text_rect.center = (WIDTH/2, HEIGHT/3)
-    WIN.blit(text_surface, text_rect)
-
-    score = list(prolog.query("h_score(X)"))[0]['X']
-    text = 'Your score: {} point(s).'.format(score)
-    text_surface = font.render(text, True, pygame.color.Color('white'))
-    text_rect = text_surface.get_rect()
-    text_rect.center = (WIDTH/2, HEIGHT/3 + 40)
-    WIN.blit(text_surface, text_rect)
-
-    pygame.display.update()
-    while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                sys.exit()
-
-
-def user_controller(event, hunter, wumpus, gold):
+def user_controller(event, hunter):
+    """user bindings to control the hunter"""
     if event.key == pygame.K_UP and valid_move(hunter):
         list(prolog.query("move."))
     if event.key == pygame.K_LEFT:
@@ -257,7 +267,7 @@ def user_controller(event, hunter, wumpus, gold):
     if event.key == pygame.K_s:
         list(prolog.query("shoot."))
     if event.key == pygame.K_g:
-        if list(list(prolog.query('w_hunter(X,Y,_), w_gold(X,Y), w_goal(0).'))):
+        if list(list(prolog.query('w_hunter(X,Y,_), \+w_gold(0,0), w_goal(0).'))):
             list(prolog.query("grab(0)."))
     if event.key == pygame.K_c:
         if list(list(prolog.query('w_hunter(1,1,_), w_goal(1)'))):
@@ -265,10 +275,13 @@ def user_controller(event, hunter, wumpus, gold):
             winner()
 
 
-def main() -> None:
+def main(args) -> None:
     """Main function to run the simulation."""
 
-    list(prolog.query("run(pygame)."))
+    if args.t_map:
+        list(prolog.query("run(pygameMap)."))
+    else:
+        list(prolog.query("run(pygame)."))
 
     last = pygame.time.get_ticks()
     cooldown = FPS * 6
@@ -294,8 +307,8 @@ def main() -> None:
             if event.type == pygame.MOUSEBUTTONDOWN:
                 print(pygame.mouse.get_pos())
             if event.type == pygame.KEYDOWN:
-                if not IS_AGENT:
-                    user_controller(event, hunter, wumpus, gold)
+                if not args.is_agent:
+                    user_controller(event, hunter)
 
         update_objects(light, moving_sprites, *pits, gold)
         draw_window(light, moving_sprites, *pits, gold)
@@ -303,7 +316,7 @@ def main() -> None:
         if list(prolog.query("w_hunter(1,1,_), w_goal(1).")):
             winner()
 
-        if IS_AGENT:
+        if args.is_agent:
             now = pygame.time.get_ticks()
             if now - last >= cooldown:
                 last = now
@@ -311,4 +324,25 @@ def main() -> None:
 
 
 if __name__ == '__main__':
-    main()  # run main function
+    parser = argparse.ArgumentParser(
+        description="AI Agent for Wumpus World game")
+
+    parser.add_argument(
+        '-user',
+        dest='is_agent',
+        action="store_false",
+        default=True,
+        help="enable test mode for user to test the game.",
+    )
+
+    parser.add_argument(
+        '-map',
+        dest='t_map',
+        action="store_true",
+        default=False,
+        help="run simulation on traditional map.",
+    )
+
+    args = parser.parse_args()
+
+    main(args)  # run main function
