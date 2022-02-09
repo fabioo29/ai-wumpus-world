@@ -36,7 +36,7 @@
 
 <div style="text-align: justify">
   
-**Motivation**: If you want to learn Prolog, try to solve the Wumpus problem using Prepositional Logic or First-Order Logic. For the latter you can find a thorough discussion on section 8.4 from Artificial Intelligence: A Modern Approach. There are some solutions available in the Internet. Try to develop yours' own, even if that means you will be unable to complete it. Section 9.4.2 in this same book presents a quick introduction to Prolog.
+**Motivation**: Academic project for Fundamentals of Artificial Intelligence, M2AI. If you want to learn Prolog, try to solve the Wumpus problem using Prepositional Logic or First-Order Logic. For the latter you can find a thorough discussion on section 8.4 from Artificial Intelligence: A Modern Approach. There are some solutions available in the Internet. Try to develop yours' own, even if that means you will be unable to complete it. Section 9.4.2 in this same book presents a quick introduction to Prolog.
 
 Wumpus world is a classic problem in artificial intelligence. It is a classic example of a problem that can be solved using . In a wumpus world game there is a hunter(H) who wants to take gold(G) and get out of the cave from the initial position(1,1) without being killed by the wumpus(W) or fall in one of the three pits(P) placed on the map. The hunter has one arrow and only one opportunity to shoot and kill Wumpus. The hunter has four possible actions: move_forward, turn_left, turn_right, grab_gold, shoot and climb_out. Wumpus screams when it gets killed. Hunter can sense wumpus or a pit in adjacent cells. The hunter scores when he: gets gold(+1000), dies(-1000), takes_action(-1), shoot_arrow(-10).
 
